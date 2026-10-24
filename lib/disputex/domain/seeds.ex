@@ -143,18 +143,49 @@ defmodule Disputex.Domain.Seeds do
     first = Enum.at(@first, rem(i - 1, length(@first)))
     last = Enum.at(@last, rem(i - 1, length(@last)))
     name = first <> " " <> last
+    country = Enum.at(@countries, rem(i, length(@countries)))
 
     %{
       attrs: %{
         name: name,
         email: String.downcase(first) <> "." <> String.downcase(last) <> "#{i}@example.test",
-        phone: "+1 415 555 " <> String.pad_leading(Integer.to_string(1000 + i), 4, "0"),
-        country: Enum.at(@countries, rem(i, length(@countries))),
+        phone: phone(i, country),
+        country: country,
         account_created_at:
           DateTime.new!(Date.add(~D[2023-03-01], rem(i * 7, 600)), ~T[12:00:00.000000], "Etc/UTC"),
         prior_bookings_count: rem(i, 9)
       }
     }
+  end
+
+  # Country shapes the number: NANP for US and CA, national grouping elsewhere.
+  defp phone(i, "US"), do: "+1 415 555 " <> pad(1_000 + i, 4)
+  defp phone(i, "CA"), do: "+1 416 555 " <> pad(1_000 + i, 4)
+
+  defp phone(i, "BR") do
+    n = 90_000_000 + i
+    "+55 19 #{div(n, 10_000)}-#{pad(rem(n, 10_000), 4)}"
+  end
+
+  defp phone(i, "GB"), do: "+44 20 7946 " <> pad(i, 4)
+  defp phone(i, "DE"), do: "+49 30 " <> pad(1_000_000 + i, 7)
+
+  defp phone(i, "FR") do
+    chunks =
+      (10_000_000 + i)
+      |> Integer.to_string()
+      |> String.graphemes()
+      |> Enum.chunk_every(2)
+      |> Enum.map_join(" ", &Enum.join/1)
+
+    "+33 6 " <> chunks
+  end
+
+  defp phone(i, "AU"), do: "+61 2 9374 " <> pad(i, 4)
+  defp phone(i, "JP"), do: "+81 3 1234 " <> pad(i, 4)
+
+  defp pad(number, width) do
+    number |> Integer.to_string() |> String.pad_leading(width, "0")
   end
 
   defp booking(i) do

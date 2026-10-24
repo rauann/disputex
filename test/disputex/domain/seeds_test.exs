@@ -23,6 +23,12 @@ defmodule Disputex.Domain.SeedsTest do
     assert plan.stays != []
     assert plan.emails != []
     assert plan.access_logs != []
+
+    phones = Enum.map(plan.customers, & &1.attrs.phone)
+
+    for prefix <- ["+1 ", "+55 ", "+44 ", "+49 ", "+33 ", "+61 ", "+81 "] do
+      assert Enum.any?(phones, &String.starts_with?(&1, prefix))
+    end
   end
 
   test "insert! persists the plan once" do

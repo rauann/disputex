@@ -2,6 +2,10 @@ defmodule Disputex.Privacy.Redactor do
   @moduledoc """
   Replaces emails, phone numbers, and known names with tokens such as `<EMAIL_1>`.
 
+  Phones are E.164-style (`+` and 7 to 15 digits, with spaces, dots, hyphens,
+  or parentheses) plus NANP forms such as `(415) 555-0100`. Bare amounts,
+  dates, booking refs, IP addresses, and ISO timestamps are left alone.
+
   The original value is stored in `pii_vault`, encrypted. `rehydrate/2` is the
   inverse for a dispute. Token syntax (`<EMAIL_N>`, `<PHONE_N>`, `<NAME_N>`) is
   reserved and is not treated as source text.
@@ -13,7 +17,11 @@ defmodule Disputex.Privacy.Redactor do
   alias Disputex.Repo
 
   @email ~r/[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}/
-  @phone ~r/(?:\+\d{1,3}[\s.\-]?)?(?:\(\d{3}\)[\s.\-]?|\d{3}[\s.\-])\d{3}[\s.\-]\d{4}/
+  # `+` then 7–15 digits. Separators sit only between digits, so a timezone
+  # offset (`+00:00`) and a dotted IP never qualify.
+  @intl_phone ~r/(?<!\d)\+(?:[\s.\-()])*\d(?:[\s.\-()]*\d){6,14}(?!\d)/
+  # NANP: (NXX) NXX-XXXX or NXX-NXX-XXXX. The groups reject dates and IPs.
+  @us_phone ~r/(?<!\d)(?:\(\d{3}\)[\s.\-]?|\d{3}[\s.\-])\d{3}[\s.\-]\d{4}(?!\d)/
   @token ~r/<(EMAIL|PHONE|NAME)_(\d+)>/
 
   @type option :: {:dispute_id, Ecto.UUID.t()} | {:names, [String.t()]}
@@ -54,11 +62,15 @@ defmodule Disputex.Privacy.Redactor do
 
   defp transform(text, names, state) do
     matches =
-      (scan(text, @email, :email) ++ scan(text, @phone, :phone) ++ name_matches(text, names))
+      (scan(text, @email, :email) ++ phone_matches(text) ++ name_matches(text, names))
       |> Enum.sort_by(fn {start, length, _kind, _value} -> {start, -length} end)
       |> drop_overlaps()
 
     stitch(text, matches, state)
+  end
+
+  defp phone_matches(text) do
+    scan(text, @intl_phone, :phone) ++ scan(text, @us_phone, :phone)
   end
 
   defp scan(text, regex, kind) do
