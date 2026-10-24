@@ -1,0 +1,16 @@
+#!/bin/sh
+set -eu
+
+cd "$(dirname "$0")/.."
+
+# Oban boots with the release and queries its tables. Skip it until they exist.
+export DISPUTEX_SKIP_OBAN=true
+bin/disputex eval "Disputex.Release.migrate()"
+
+if [ "${DEMO_SEED:-false}" = "true" ]; then
+  bin/disputex eval "Disputex.Release.seed_if_empty()"
+fi
+
+unset DISPUTEX_SKIP_OBAN
+export PHX_SERVER=true
+exec bin/disputex start

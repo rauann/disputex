@@ -1,0 +1,52 @@
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: disputex
+      POSTGRES_PASSWORD: disputex
+      POSTGRES_DB: disputex
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "disputex", "-d", "disputex"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: ecto://disputex:disputex@db/disputex
+      PHX_HOST: localhost
+    ports:
+      - "127.0.0.1:4000:4000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  stripe-cli:
+    image: stripe/stripe-cli:latest
+    profiles: ["stripe"]
+    command: listen --forward-to app:4000/webhooks/stripe --events charge.dispute.created,charge.dispute.updated,charge.dispute.closed
+    environment:
+      STRIPE_API_KEY: ${STRIPE_SECRET_KEY}
+    depends_on:
+      - app
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    profiles: ["otel"]
+    ports:
+      - "127.0.0.1:16686:16686"
+
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["local"]
+
+volumes:
+  pgdata: {}

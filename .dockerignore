@@ -1,0 +1,13 @@
+.git
+.gitignore
+_build
+deps
+cover
+tmp
+doc
+.env
+.env.*
+!.env.example
+erl_crash.dump
+*.ez
+assets/node_modules
