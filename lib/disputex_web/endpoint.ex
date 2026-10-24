@@ -43,6 +43,12 @@ defmodule DisputexWeb.Endpoint do
   plug Plug.RequestId
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
 
+  # Before Plug.Parsers so Stripe.WebhookPlug can read the raw body.
+  plug Stripe.WebhookPlug,
+    at: "/webhooks/stripe",
+    handler: DisputexWeb.StripeHandler,
+    secret: {DisputexWeb.StripeHandler, :webhook_secret, []}
+
   plug Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],
     pass: ["*/*"],
